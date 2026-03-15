@@ -40,7 +40,7 @@ for iteration in 1...10 {
             balance += profit
             
             print("\(formattedPrice) \(currency) - продажа")
-            print("Продажа = \(String(format: "%.2f", entryPrice)) ->  \(formattedPrice), Прибль = \(String(format: "%.2f", profit))")
+            print("Продажа  From = \(String(format: "%.2f", entryPrice)) -> TO =\(formattedPrice), INCOME = \(String(format: "%.2f", profit))")
             
             print("Новый баланс: \(String(format: "%.2f", balance))")
             
