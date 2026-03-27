@@ -6,6 +6,13 @@ final class ViewController: UIViewController {
     private let initialBalance: Double = 200.0
     private var originalStdout: Int32?
     private var pipe: Pipe?
+    private var hasTradeHistory: Bool = false
+    
+    private let contentView: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
     
     private let topContainerView: UIView = {
         let view = UIView()
@@ -29,6 +36,7 @@ final class ViewController: UIViewController {
         label.text = "Спот Rub/USD"
         label.font = .systemFont(ofSize: 18, weight: .medium)
         label.textColor = .label
+        label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
     
@@ -36,6 +44,7 @@ final class ViewController: UIViewController {
         let items = ["RUB", "USD"]
         let segmentedControl = UISegmentedControl(items: items)
         segmentedControl.selectedSegmentIndex = 0
+        segmentedControl.translatesAutoresizingMaskIntoConstraints = false
         return segmentedControl
     }()
     
@@ -54,7 +63,6 @@ final class ViewController: UIViewController {
         return stackView
     }()
     
-
     private let balanceControlView: UIView = {
         let view = UIView()
         view.backgroundColor = .systemGray6
@@ -74,7 +82,7 @@ final class ViewController: UIViewController {
     
     private let balanceSlider: UISlider = {
         let slider = UISlider()
-        slider.minimumValue = 100
+        slider.minimumValue = 200
         slider.maximumValue = 1000
         slider.value = 200
         slider.translatesAutoresizingMaskIntoConstraints = false
@@ -120,10 +128,17 @@ final class ViewController: UIViewController {
         return textField
     }()
     
+    private let outputContainerView: UIView = {
+        let view = UIView()
+        view.backgroundColor = .systemGray6
+        view.layer.cornerRadius = 12
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    
     private let outputScrollView: UIScrollView = {
         let scrollView = UIScrollView()
-        scrollView.backgroundColor = .systemGray6
-        scrollView.layer.cornerRadius = 12
+        scrollView.backgroundColor = .clear
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         return scrollView
     }()
@@ -137,6 +152,17 @@ final class ViewController: UIViewController {
         textView.isScrollEnabled = false
         textView.translatesAutoresizingMaskIntoConstraints = false
         return textView
+    }()
+    
+    private let noDataLabel: UILabel = {
+        let label = UILabel()
+        label.text = "Нет данных\nНажмите Run для начала торговли"
+        label.font = .systemFont(ofSize: 16, weight: .medium)
+        label.textColor = .secondaryLabel
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
     }()
     
     private let runButton: UIButton = {
@@ -154,14 +180,16 @@ final class ViewController: UIViewController {
         super.viewDidLoad()
         setupUI()
         setupActions()
-        setupInitialOutput()
+        showNoDataState()
     }
     
     private func setupUI() {
         view.backgroundColor = .systemBackground
         
-        view.addSubview(topContainerView)
-        view.addSubview(mainContainerView)
+        view.addSubview(contentView)
+        
+        contentView.addSubview(topContainerView)
+        contentView.addSubview(mainContainerView)
         
         topContainerView.addSubview(titleStackView)
         titleStackView.addArrangedSubview(titleLabel)
@@ -178,8 +206,10 @@ final class ViewController: UIViewController {
         stopLossView.addSubview(stopLossTextField)
         settingsStackView.addArrangedSubview(stopLossView)
         
+        mainContainerView.addSubview(outputContainerView)
+        outputContainerView.addSubview(outputScrollView)
+        outputContainerView.addSubview(noDataLabel)
         outputScrollView.addSubview(outputTextView)
-        mainContainerView.addSubview(outputScrollView)
         
         mainContainerView.addSubview(runButton)
         
@@ -188,22 +218,26 @@ final class ViewController: UIViewController {
     
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-            
-            
-            topContainerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
-            topContainerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            topContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            contentView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+        ])
+        
+        NSLayoutConstraint.activate([
+            topContainerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
+            topContainerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            topContainerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             
             titleStackView.topAnchor.constraint(equalTo: topContainerView.topAnchor, constant: 8),
             titleStackView.leadingAnchor.constraint(equalTo: topContainerView.leadingAnchor, constant: 8),
             titleStackView.trailingAnchor.constraint(equalTo: topContainerView.trailingAnchor, constant: -8),
             titleStackView.bottomAnchor.constraint(equalTo: topContainerView.bottomAnchor, constant: -8),
             
-            // Основной контейнер
             mainContainerView.topAnchor.constraint(equalTo: topContainerView.bottomAnchor, constant: 16),
-            mainContainerView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            mainContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            mainContainerView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+            mainContainerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            mainContainerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            mainContainerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
             
             settingsStackView.topAnchor.constraint(equalTo: mainContainerView.topAnchor),
             settingsStackView.leadingAnchor.constraint(equalTo: mainContainerView.leadingAnchor),
@@ -229,16 +263,26 @@ final class ViewController: UIViewController {
             stopLossTextField.centerYAnchor.constraint(equalTo: stopLossView.centerYAnchor),
             stopLossTextField.widthAnchor.constraint(equalToConstant: 100),
             
-            outputScrollView.topAnchor.constraint(equalTo: settingsStackView.bottomAnchor, constant: 20),
-            outputScrollView.leadingAnchor.constraint(equalTo: mainContainerView.leadingAnchor),
-            outputScrollView.trailingAnchor.constraint(equalTo: mainContainerView.trailingAnchor),
-            outputScrollView.bottomAnchor.constraint(equalTo: runButton.topAnchor, constant: -20),
+            outputContainerView.topAnchor.constraint(equalTo: settingsStackView.bottomAnchor, constant: 20),
+            outputContainerView.leadingAnchor.constraint(equalTo: mainContainerView.leadingAnchor),
+            outputContainerView.trailingAnchor.constraint(equalTo: mainContainerView.trailingAnchor),
+            outputContainerView.bottomAnchor.constraint(equalTo: runButton.topAnchor, constant: -20),
+            
+            outputScrollView.topAnchor.constraint(equalTo: outputContainerView.topAnchor),
+            outputScrollView.leadingAnchor.constraint(equalTo: outputContainerView.leadingAnchor),
+            outputScrollView.trailingAnchor.constraint(equalTo: outputContainerView.trailingAnchor),
+            outputScrollView.bottomAnchor.constraint(equalTo: outputContainerView.bottomAnchor),
             
             outputTextView.topAnchor.constraint(equalTo: outputScrollView.topAnchor, constant: 12),
             outputTextView.leadingAnchor.constraint(equalTo: outputScrollView.leadingAnchor, constant: 12),
             outputTextView.trailingAnchor.constraint(equalTo: outputScrollView.trailingAnchor, constant: -12),
             outputTextView.bottomAnchor.constraint(equalTo: outputScrollView.bottomAnchor, constant: -12),
             outputTextView.widthAnchor.constraint(equalTo: outputScrollView.widthAnchor, constant: -24),
+            
+            noDataLabel.centerXAnchor.constraint(equalTo: outputContainerView.centerXAnchor),
+            noDataLabel.centerYAnchor.constraint(equalTo: outputContainerView.centerYAnchor),
+            noDataLabel.leadingAnchor.constraint(greaterThanOrEqualTo: outputContainerView.leadingAnchor, constant: 20),
+            noDataLabel.trailingAnchor.constraint(lessThanOrEqualTo: outputContainerView.trailingAnchor, constant: -20),
             
             runButton.leadingAnchor.constraint(equalTo: mainContainerView.leadingAnchor),
             runButton.trailingAnchor.constraint(equalTo: mainContainerView.trailingAnchor),
@@ -255,8 +299,18 @@ final class ViewController: UIViewController {
         view.addGestureRecognizer(tapGesture)
     }
     
-    private func setupInitialOutput() {
-        outputTextView.text = "Готов к запуску \nНажмите Run для начала торговли\n"
+    private func showNoDataState() {
+        hasTradeHistory = false
+        outputTextView.isHidden = true
+        outputScrollView.isHidden = true
+        noDataLabel.isHidden = false
+    }
+    
+    private func showTradeHistory() {
+        hasTradeHistory = true
+        outputTextView.isHidden = false
+        outputScrollView.isHidden = false
+        noDataLabel.isHidden = true
     }
     
     @objc private func balanceSliderChanged() {
@@ -271,31 +325,29 @@ final class ViewController: UIViewController {
     @objc private func runButtonTapped() {
         view.endEditing(true)
         
-
         let balance = Double(balanceSlider.value)
         let stopProfitValue = Double(stopLossTextField.text ?? "80") ?? 80
         let selectedCurrency = currencySegmentedControl.selectedSegmentIndex == 0 ? "RUB" : "USD"
         
-
         tradingSimulator = TradingSimulator(initialBalance: balance, currency: selectedCurrency)
         tradingSimulator?.setStopProfit(stopProfitValue)
         
-
+        showTradeHistory()
+        
         outputTextView.text = ""
         appendToOutput("=== ЗАПУСК ТОРГОВОГО БОТА ===\n")
+        appendToOutput("Баланс: \(String(format: "%.2f", balance)) \(selectedCurrency)")
+        appendToOutput("Стоп-профит: \(String(format: "%.2f", stopProfitValue))")
+        appendToOutput("Валюта: \(selectedCurrency)\n")
         
-
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             
-
             let originalStdout = dup(STDOUT_FILENO)
             
-
             let pipe = Pipe()
             dup2(pipe.fileHandleForWriting.fileDescriptor, STDOUT_FILENO)
             
-
             pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
                 let data = handle.availableData
                 if let output = String(data: data, encoding: .utf8), !output.isEmpty {
@@ -315,7 +367,7 @@ final class ViewController: UIViewController {
             pipe.fileHandleForWriting.closeFile()
             
             DispatchQueue.main.async {
-                self.appendToOutput("\n РАБОТА ЗАВЕРШЕНА")
+                self.appendToOutput("\nРАБОТА ЗАВЕРШЕНА")
             }
         }
     }
@@ -324,7 +376,6 @@ final class ViewController: UIViewController {
         DispatchQueue.main.async {
             let currentText = self.outputTextView.text ?? ""
             self.outputTextView.text = currentText + text + "\n"
-
             
             let range = NSRange(location: self.outputTextView.text.count - 1, length: 1)
             self.outputTextView.scrollRangeToVisible(range)
