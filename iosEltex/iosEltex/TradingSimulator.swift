@@ -64,7 +64,7 @@ class TradingSimulator: TradingProtocol {
         }
     }
     
-    private func calculateProfit(entryPrice: Double, exitPrice: Double) -> Double {
+    func calculateProfit(entryPrice: Double, exitPrice: Double) -> Double {
         return exitPrice - entryPrice
     }
     
@@ -85,8 +85,8 @@ class TradingSimulator: TradingProtocol {
                 
                 print("\(priceData.formattedValue) \(currency) - ПРОДАЖА")
                 print("Вход: \(String(format: "%.2f", entryPrice)) → Выход: \(priceData.formattedValue)")
-                let profitSymbol = profit >= 0 ? "📈" : "📉"
-                print("\(profitSymbol) Прибыль: \(String(format: "%.2f", profit)) \(currency)")
+                let profitSymbol = profit >= 0 ? "+" : ""
+                print("Прибыль: \(profitSymbol)\(String(format: "%.2f", profit)) \(currency)")
                 print("Новый баланс: \(String(format: "%.2f", balance)) \(currency)")
                 
                 buyPrice = nil
@@ -106,6 +106,7 @@ class TradingSimulator: TradingProtocol {
 extension TradingSimulator {
     
     func runSimulation(iterations: Int, priceRange: ClosedRange<Double>) {
+        print("\nНАЧАЛО СИМУЛЯЦИИ")
         print("Диапазон цен: \(Int(priceRange.lowerBound))...\(Int(priceRange.upperBound))")
         print("Стоп-профит: \(String(format: "%.2f", stopProfit)) \(currency)")
         print("Начальный баланс: \(String(format: "%.2f", balance)) \(currency)")
@@ -121,7 +122,7 @@ extension TradingSimulator {
     
     func printFinalResult() {
         print("\n========================================")
-        print("          ИТОГОВЫЙ РЕЗУЛЬТАТ")
+        print("ИТОГОВЫЙ РЕЗУЛЬТАТ")
         print("========================================")
         print("Баланс: \(String(format: "%.2f", balance)) \(currency)")
         
@@ -134,7 +135,7 @@ extension TradingSimulator {
         
         if hasOpenPosition {
             print("Открытая позиция: \(String(format: "%.2f", currentPositionPrice ?? 0)) \(currency)")
-            print("   (ожидаем продажи при достижении \(String(format: "%.2f", stopProfit)))")
+            print("(ожидаем продажи при достижении \(String(format: "%.2f", stopProfit)))")
         }
         print("========================================")
     }

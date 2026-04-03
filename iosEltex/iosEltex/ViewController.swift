@@ -3,9 +3,7 @@ import UIKit
 final class ViewController: UIViewController {
     
     private var tradingSimulator: TradingSimulator?
-    private let initialBalance: Double = 200.0
-    private var originalStdout: Int32?
-    private var pipe: Pipe?
+    private var tradeHistory: [TradeRecord] = []
     private var hasTradeHistory: Bool = false
     
     private let contentView: UIView = {
@@ -82,7 +80,7 @@ final class ViewController: UIViewController {
     
     private let balanceSlider: UISlider = {
         let slider = UISlider()
-        slider.minimumValue = 200
+        slider.minimumValue = 100
         slider.maximumValue = 1000
         slider.value = 200
         slider.translatesAutoresizingMaskIntoConstraints = false
@@ -128,30 +126,13 @@ final class ViewController: UIViewController {
         return textField
     }()
     
-    private let outputContainerView: UIView = {
-        let view = UIView()
-        view.backgroundColor = .systemGray6
-        view.layer.cornerRadius = 12
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }()
-    
-    private let outputScrollView: UIScrollView = {
-        let scrollView = UIScrollView()
-        scrollView.backgroundColor = .clear
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        return scrollView
-    }()
-    
-    private let outputTextView: UITextView = {
-        let textView = UITextView()
-        textView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
-        textView.textColor = .label
-        textView.backgroundColor = .clear
-        textView.isEditable = false
-        textView.isScrollEnabled = false
-        textView.translatesAutoresizingMaskIntoConstraints = false
-        return textView
+    private let tableView: UITableView = {
+        let tableView = UITableView()
+        tableView.backgroundColor = .systemGray6
+        tableView.layer.cornerRadius = 12
+        tableView.separatorStyle = .none
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        return tableView
     }()
     
     private let noDataLabel: UILabel = {
@@ -179,6 +160,7 @@ final class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        setupTableView()
         setupActions()
         showNoDataState()
     }
@@ -206,14 +188,20 @@ final class ViewController: UIViewController {
         stopLossView.addSubview(stopLossTextField)
         settingsStackView.addArrangedSubview(stopLossView)
         
-        mainContainerView.addSubview(outputContainerView)
-        outputContainerView.addSubview(outputScrollView)
-        outputContainerView.addSubview(noDataLabel)
-        outputScrollView.addSubview(outputTextView)
+        mainContainerView.addSubview(tableView)
+        mainContainerView.addSubview(noDataLabel)
         
         mainContainerView.addSubview(runButton)
         
         setupConstraints()
+    }
+    
+    private func setupTableView() {
+        tableView.dataSource = self
+        tableView.delegate = self
+        tableView.register(TradeCell.self, forCellReuseIdentifier: "TradeCell")
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 100
     }
     
     private func setupConstraints() {
@@ -221,10 +209,8 @@ final class ViewController: UIViewController {
             contentView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             contentView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
-            contentView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
-        ])
-        
-        NSLayoutConstraint.activate([
+            contentView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            
             topContainerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
             topContainerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             topContainerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
@@ -263,26 +249,15 @@ final class ViewController: UIViewController {
             stopLossTextField.centerYAnchor.constraint(equalTo: stopLossView.centerYAnchor),
             stopLossTextField.widthAnchor.constraint(equalToConstant: 100),
             
-            outputContainerView.topAnchor.constraint(equalTo: settingsStackView.bottomAnchor, constant: 20),
-            outputContainerView.leadingAnchor.constraint(equalTo: mainContainerView.leadingAnchor),
-            outputContainerView.trailingAnchor.constraint(equalTo: mainContainerView.trailingAnchor),
-            outputContainerView.bottomAnchor.constraint(equalTo: runButton.topAnchor, constant: -20),
+            tableView.topAnchor.constraint(equalTo: settingsStackView.bottomAnchor, constant: 20),
+            tableView.leadingAnchor.constraint(equalTo: mainContainerView.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: mainContainerView.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: runButton.topAnchor, constant: -20),
             
-            outputScrollView.topAnchor.constraint(equalTo: outputContainerView.topAnchor),
-            outputScrollView.leadingAnchor.constraint(equalTo: outputContainerView.leadingAnchor),
-            outputScrollView.trailingAnchor.constraint(equalTo: outputContainerView.trailingAnchor),
-            outputScrollView.bottomAnchor.constraint(equalTo: outputContainerView.bottomAnchor),
-            
-            outputTextView.topAnchor.constraint(equalTo: outputScrollView.topAnchor, constant: 12),
-            outputTextView.leadingAnchor.constraint(equalTo: outputScrollView.leadingAnchor, constant: 12),
-            outputTextView.trailingAnchor.constraint(equalTo: outputScrollView.trailingAnchor, constant: -12),
-            outputTextView.bottomAnchor.constraint(equalTo: outputScrollView.bottomAnchor, constant: -12),
-            outputTextView.widthAnchor.constraint(equalTo: outputScrollView.widthAnchor, constant: -24),
-            
-            noDataLabel.centerXAnchor.constraint(equalTo: outputContainerView.centerXAnchor),
-            noDataLabel.centerYAnchor.constraint(equalTo: outputContainerView.centerYAnchor),
-            noDataLabel.leadingAnchor.constraint(greaterThanOrEqualTo: outputContainerView.leadingAnchor, constant: 20),
-            noDataLabel.trailingAnchor.constraint(lessThanOrEqualTo: outputContainerView.trailingAnchor, constant: -20),
+            noDataLabel.centerXAnchor.constraint(equalTo: tableView.centerXAnchor),
+            noDataLabel.centerYAnchor.constraint(equalTo: tableView.centerYAnchor),
+            noDataLabel.leadingAnchor.constraint(greaterThanOrEqualTo: tableView.leadingAnchor, constant: 20),
+            noDataLabel.trailingAnchor.constraint(lessThanOrEqualTo: tableView.trailingAnchor, constant: -20),
             
             runButton.leadingAnchor.constraint(equalTo: mainContainerView.leadingAnchor),
             runButton.trailingAnchor.constraint(equalTo: mainContainerView.trailingAnchor),
@@ -301,16 +276,74 @@ final class ViewController: UIViewController {
     
     private func showNoDataState() {
         hasTradeHistory = false
-        outputTextView.isHidden = true
-        outputScrollView.isHidden = true
+        tableView.isHidden = true
         noDataLabel.isHidden = false
+        tradeHistory.removeAll()
+        tableView.reloadData()
     }
     
     private func showTradeHistory() {
         hasTradeHistory = true
-        outputTextView.isHidden = false
-        outputScrollView.isHidden = false
+        tableView.isHidden = false
         noDataLabel.isHidden = true
+        tableView.reloadData()
+    }
+    
+    private func generateTradeHistory() {
+        tradeHistory.removeAll()
+        
+        let balance = Double(balanceSlider.value)
+        let stopProfitValue = Double(stopLossTextField.text ?? "80") ?? 80
+        let selectedCurrency = currencySegmentedControl.selectedSegmentIndex == 0 ? "RUB" : "USD"
+        
+        tradingSimulator = TradingSimulator(initialBalance: balance, currency: selectedCurrency)
+        tradingSimulator?.setStopProfit(stopProfitValue)
+        
+        let simulator = tradingSimulator!
+        
+        for iteration in 1...30 {
+            let price = Double.random(in: 60...100)
+            let decision = simulator.makeDecision(price: price)
+            
+            var tradeRecord = TradeRecord(
+                iteration: iteration,
+                price: price,
+                currency: selectedCurrency,
+                type: decision,
+                hasTradeExecuted: false
+            )
+            
+            switch decision {
+            case .buy:
+                tradeRecord.hasTradeExecuted = true
+                tradeRecord.tradeInfo = "Куплено по цене \(String(format: "%.2f", price)) \(selectedCurrency)"
+                simulator.executeTrade(price: price)
+                
+            case .sell:
+                if simulator.hasOpenPosition {
+                    tradeRecord.hasTradeExecuted = true
+                    if let entryPrice = simulator.currentPositionPrice {
+                        let profit = simulator.calculateProfit(entryPrice: entryPrice, exitPrice: price)
+                        tradeRecord.tradeInfo = "Продажа: \(String(format: "%.2f", entryPrice)) → \(String(format: "%.2f", price))\nПрибыль: \(String(format: "%.2f", profit)) \(selectedCurrency)"
+                    }
+                }
+                simulator.executeTrade(price: price)
+                
+            case .hold:
+                if simulator.hasOpenPosition {
+                    tradeRecord.tradeInfo = "Ожидаем роста до \(String(format: "%.2f", stopProfitValue))"
+                } else {
+                    tradeRecord.tradeInfo = "Нет открытой позиции"
+                }
+                
+            case .ignore:
+                tradeRecord.tradeInfo = "Цена не подходит для входа"
+            }
+            
+            tradeHistory.append(tradeRecord)
+        }
+        
+        tradingSimulator?.printFinalResult()
     }
     
     @objc private func balanceSliderChanged() {
@@ -324,61 +357,35 @@ final class ViewController: UIViewController {
     
     @objc private func runButtonTapped() {
         view.endEditing(true)
-        
-        let balance = Double(balanceSlider.value)
-        let stopProfitValue = Double(stopLossTextField.text ?? "80") ?? 80
-        let selectedCurrency = currencySegmentedControl.selectedSegmentIndex == 0 ? "RUB" : "USD"
-        
-        tradingSimulator = TradingSimulator(initialBalance: balance, currency: selectedCurrency)
-        tradingSimulator?.setStopProfit(stopProfitValue)
-        
+        generateTradeHistory()
         showTradeHistory()
-        
-        outputTextView.text = ""
-        appendToOutput("=== ЗАПУСК ТОРГОВОГО БОТА ===\n")
-        appendToOutput("Баланс: \(String(format: "%.2f", balance)) \(selectedCurrency)")
-        appendToOutput("Стоп-профит: \(String(format: "%.2f", stopProfitValue))")
-        appendToOutput("Валюта: \(selectedCurrency)\n")
-        
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-            
-            let originalStdout = dup(STDOUT_FILENO)
-            
-            let pipe = Pipe()
-            dup2(pipe.fileHandleForWriting.fileDescriptor, STDOUT_FILENO)
-            
-            pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
-                let data = handle.availableData
-                if let output = String(data: data, encoding: .utf8), !output.isEmpty {
-                    DispatchQueue.main.async {
-                        self?.appendToOutput(output.trimmingCharacters(in: .newlines))
-                    }
-                }
-            }
-            
-            self.tradingSimulator?.runSimulation(iterations: 10, priceRange: 60...100)
-            self.tradingSimulator?.printFinalResult()
-            
-            fflush(stdout)
-            dup2(originalStdout, STDOUT_FILENO)
-            close(originalStdout)
-            pipe.fileHandleForReading.readabilityHandler = nil
-            pipe.fileHandleForWriting.closeFile()
-            
-            DispatchQueue.main.async {
-                self.appendToOutput("\nРАБОТА ЗАВЕРШЕНА")
-            }
-        }
+    }
+}
+
+extension ViewController: UITableViewDataSource, UITableViewDelegate {
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return tradeHistory.count
     }
     
-    private func appendToOutput(_ text: String) {
-        DispatchQueue.main.async {
-            let currentText = self.outputTextView.text ?? ""
-            self.outputTextView.text = currentText + text + "\n"
-            
-            let range = NSRange(location: self.outputTextView.text.count - 1, length: 1)
-            self.outputTextView.scrollRangeToVisible(range)
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        guard let cell = tableView.dequeueReusableCell(withIdentifier: "TradeCell", for: indexPath) as? TradeCell else {
+            return UITableViewCell()
+        }
+        
+        let record = tradeHistory[indexPath.row]
+        cell.configure(with: record)
+        
+        return cell
+    }
+    
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        let record = tradeHistory[indexPath.row]
+        
+        if record.type == .ignore || (record.type == .hold && !record.hasTradeExecuted) {
+            return 70
+        } else {
+            return 110
         }
     }
 }
